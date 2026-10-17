@@ -267,6 +267,7 @@ export default function TacticalMap({
         <svg
           className="tactical-map"
           viewBox="0 0 860 600"
+          preserveAspectRatio="xMidYMid slice"
           role="group"
           aria-label="Campus-wide UMD tactical map with current circle and revealed next pull"
         >
