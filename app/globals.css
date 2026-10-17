@@ -2236,3 +2236,8 @@ footer b {
   height: 100%;
   transform: none;
 }
+@media (max-width: 650px) {
+  .page-heading .heading-dot {
+    display: none;
+  }
+}
