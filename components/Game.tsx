@@ -100,6 +100,7 @@ export default function Game() {
       request(saved)
         .then((v) => {
           setLocal(false);
+          setGps("Location off");
           update(v);
         })
         .catch(() => {
