@@ -9,6 +9,7 @@ export const supabase =
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
     : null;
+let realtimeToken: string | undefined;
 export async function token() {
   if (!supabase) throw Error("Configure Supabase to enable multiplayer");
   let {
@@ -20,6 +21,11 @@ export async function token() {
     session = result.data.session;
   }
   if (!session) throw Error("Could not sign in");
+  // New publishable API keys are not JWTs. Authenticate realtime with the player JWT.
+  if (realtimeToken !== session.access_token) {
+    await supabase.realtime.setAuth(session.access_token);
+    realtimeToken = session.access_token;
+  }
   return session.access_token;
 }
 export async function request(

@@ -27,7 +27,7 @@ Open http://localhost:3000. No environment variables are needed. This mode uses 
 
 Deploy the web app on Vercel or another Node-compatible Next.js host: install `npm ci`, build `npm run build`, start `npm start`. Add all four environment variables, rebuild, and use the HTTPS URL. The second migration runs the authoritative match clock inside Supabase using pg_cron every second; Vercel only serves the web app and authenticated actions. No Vercel cron, long-running serverless function, or third hosting service is required. Scope the deployment to your private pilot; there is no public directory of lobbies.
 
-This delivery includes a verified localhost preview. Deployment is configured against the dedicated SCRAM-UMD Supabase project. Secrets live only in ignored local environment settings and deployment settings. `APPROVED_PLAY_AREA` stays false until an organizer verifies the outdoor geometry. Real-phone field verification remains required before play.
+The live website is [scram-umd.vercel.app](https://scram-umd.vercel.app); the private source repository is [Akki0725/scram-umd](https://github.com/Akki0725/scram-umd). Live deployment checks verified private lobby creation/join, outsider denial, protected state reads, revision-only Supabase realtime delivery, and match-end clearing. Deployment is configured against the dedicated SCRAM-UMD Supabase project. Secrets live only in ignored local environment settings and deployment settings. `APPROVED_PLAY_AREA` stays false until an organizer verifies the outdoor geometry. Real-phone field verification remains required before play.
 
 ## Rules implemented
 
