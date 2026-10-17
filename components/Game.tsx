@@ -42,7 +42,7 @@ import {
   type Pickup,
 } from "@/lib/engine";
 import { demo } from "@/lib/demo";
-import { fromLngLat } from "@/lib/geo";
+import { fromLngLat, inPlayArea } from "@/lib/geo";
 import { configured, request, supabase } from "@/lib/client";
 const time = (n: number) =>
   `${Math.floor(Math.max(0, n) / 60)
@@ -392,10 +392,9 @@ export default function Game() {
   const supply = game.pickups.filter((p) => !p.claimed);
   const inStorm =
     !!me.fix &&
-    (Math.hypot(me.fix.x - z.center.x, me.fix.y - z.center.y) > z.radius ||
-      Math.abs(me.fix.y) > 30 ||
-      Math.abs(me.fix.x) > 140 ||
-      Math.hypot(me.fix.x, me.fix.y) <= 18);
+    (!inPlayArea(game, me.fix) ||
+      Math.hypot(me.fix.x - z.center.x, me.fix.y - z.center.y) > z.radius);
+
   return (
     <div className="app">
       <aside className="rail">
@@ -696,6 +695,18 @@ export default function Game() {
                         : "FIND YOUR SAFE SPOT"}
                   </span>
                 </div>
+                <div className="zone-detail">
+                  <span>
+                    {Math.round(z.radius * 2).toLocaleString()} m ACROSS
+                  </span>
+                  <span>
+                    {z.preview && z.next
+                      ? `${z.next.pull.toUpperCase()} PULL`
+                      : z.phase === 0
+                        ? "CAMPUS OPENING"
+                        : `${z.pull.toUpperCase()} PULL`}
+                  </span>
+                </div>
                 <div className="phase-track">
                   {[0, 1, 2, 3, 4, 5].map((i) => (
                     <i key={i} className={i <= z.phase ? "on" : ""} />
@@ -704,7 +715,7 @@ export default function Game() {
                 <p>
                   <Info size={13} />
                   {z.preview
-                    ? "The dashed white circle is your next safe zone."
+                    ? `${z.next?.pull.toUpperCase()} PULL · white circle is the next safe zone.`
                     : "The next circle appears 2 minutes before closing."}
                 </p>
               </div>
@@ -1090,8 +1101,8 @@ export default function Game() {
                 <h2 id="modal-title">The ground rules.</h2>
                 <div className="rule-list">
                   {[
-                    "Organizer must inspect and approve the candidate Mall footprint before play. Campus access, closures, events, and permission must be checked that day.",
-                    "The playable area is the intersection of the marked outdoor boundary and the current circle. The central exclusion is out of bounds. Never enter buildings, streets, construction, or restricted areas.",
+                    "Organizer must inspect and approve the candidate campus boundary before play. Campus access, closures, events, and permission must be checked that day.",
+                    "The playable area is the intersection of the marked outdoor boundary and the current circle. Marked exclusions are out of bounds. Use marked pedestrian crossings; never rush across streets. Never chase into roads or enter buildings, construction, or restricted areas.",
                     "Walk. No tackling, grabbing, pushing, ambushes, or contact with nonparticipants. Only gentle, agreed tags; anyone can stop playing.",
                     "Look up from the screen. Stop in a safe place to use the map. The tactical map is a schematic; check the street map and real surroundings.",
                     "GPS is approximate. Keep the browser visible and your phone unlocked. After 45 seconds without a valid fix, storm damage applies until GPS resumes.",
@@ -1186,6 +1197,11 @@ export default function Game() {
                     }}
                   >
                     SIMULATION: SWITCH YOUR ROLE
+                  </button>
+                )}
+                {local && (
+                  <button className="secondary full" onClick={reset}>
+                    SIMULATION: ROLL ANOTHER STORM
                   </button>
                 )}
                 {game.host === me.id && active && (

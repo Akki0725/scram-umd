@@ -2183,3 +2183,47 @@ footer b {
     flex: 1 0 105px;
   }
 }
+.zone-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #c7b3e7;
+  margin-top: 12px;
+}
+.campus-landmark {
+  font-size: 10px;
+  fill: #a7b9b8;
+  letter-spacing: 0.7px;
+}
+.map-error {
+  position: absolute;
+  left: 15px;
+  right: 15px;
+  top: 58px;
+  font-size: 10px;
+  color: #ffc6a7;
+  background: #392820db;
+  padding: 8px;
+  border-radius: 5px;
+  z-index: 4;
+}
+.map-scale {
+  color: #c3ff43;
+}
+.campus-region-label {
+  font-size: 17px;
+  letter-spacing: 4px;
+  fill: #5c766b;
+  font-weight: 700;
+}
+@media (max-width: 650px) {
+  .zone-detail {
+    font-size: 6px;
+    letter-spacing: 0.5px;
+  }
+  .campus-landmark {
+    font-size: 11px;
+  }
+}

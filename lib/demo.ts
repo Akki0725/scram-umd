@@ -1,3 +1,4 @@
+import { inside, CAMPUS_ARENA } from "./geo";
 import { apply, createMatch, type Match } from "./engine";
 export function demo(now: number): Match {
   const m = createMatch("DEMO2026", "you", "You", now - 180000);
@@ -20,11 +21,15 @@ export function demo(now: number): Match {
   m.players.forEach((p, i) => {
     p.ready = true;
     p.fix = {
-      x: i % 2 ? -70 : 70,
-      y: ((i % 3) - 1) * 12,
+      x: m.zones![0].center.x + ((i % 3) - 1) * 80,
+      y: m.zones![0].center.y + ((i % 4) - 1) * 50,
       accuracy: 8,
       at: m.created,
     };
+  });
+  m.players.forEach((p) => {
+    if (p.fix && !inside(p.fix, CAMPUS_ARENA))
+      p.fix = { ...m.zones![0].center, at: m.created, accuracy: 8 };
   });
   apply(m, "you", { type: "start", approved: true }, m.created, () => 0.8);
   m.start = now - 180000;
@@ -32,8 +37,10 @@ export function demo(now: number): Match {
   if (m.players[0].role === "hunter")
     m.players.find((p) => p.role === "runner")!.role = "hunter";
   m.players[0].role = "runner";
-  m.players[0].fix = { x: -75, y: 0, at: now, accuracy: 8 };
+  m.players[0].fix = { ...m.zones![0].center, at: now, accuracy: 8 };
   m.players.forEach((p) => {
+    if (p.fix && !inside(p.fix, CAMPUS_ARENA))
+      p.fix = { ...m.zones![0].center, at: now, accuracy: 8 };
     if (p.fix) p.fix.at = now;
   });
   m.events = [

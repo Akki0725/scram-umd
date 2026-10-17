@@ -1,4 +1,13 @@
-import { distance, inside, FINALS, type Point } from "./geo";
+import {
+  distance,
+  inPlayArea,
+  MALL_FINALS,
+  CAMPUS_ARENA,
+  LANDMARKS,
+  type Point,
+  type Arena,
+} from "./geo";
+import { generateStorm, type StormCircle } from "./storm";
 export type Fix = Point & { accuracy: number; at: number };
 export type Player = {
   id: string;
@@ -28,6 +37,8 @@ export type Match = {
   start?: number;
   tick?: number;
   final: Point;
+  arena?: Arena;
+  zones?: StormCircle[];
   pickups: Pickup[];
   pings: Ping[];
   lastPing: number;
@@ -49,20 +60,26 @@ export const DAMAGE = [1, 2, 5, 8, 10, 10];
 export function zone(m: Match, at: number) {
   const elapsed = m.start ? Math.max(0, Math.floor((at - m.start) / 1000)) : 0;
   const phase = Math.min(5, Math.floor(elapsed / PHASE));
-  const radius = [150, 125, 100, 75, 45, 22][phase];
-  const center = { x: (m.final.x * phase) / 5, y: (m.final.y * phase) / 5 };
+  const current = m.zones?.[phase];
+  const radius = current?.radius ?? [150, 125, 100, 75, 45, 22][phase];
+  const center = current?.center ?? {
+    x: (m.final.x * phase) / 5,
+    y: (m.final.y * phase) / 5,
+  };
   return {
     phase,
     radius,
     center,
     elapsed,
+    pull: current?.pull ?? "opening",
     damage: DAMAGE[phase],
     next:
       phase < 5
-        ? {
+        ? (m.zones?.[phase + 1] ?? {
             center: { x: (m.final.x * (phase + 1)) / 5, y: 0 },
             radius: [150, 125, 100, 75, 45, 22][phase + 1],
-          }
+            pull: "opening" as const,
+          })
         : null,
     closesIn: PHASE - (elapsed % PHASE),
     preview: phase < 5 && elapsed % PHASE >= 180,
@@ -76,7 +93,9 @@ export function createMatch(
   uid: string,
   name: string,
   now: number,
+  random = Math.random,
 ): Match {
+  const zones = generateStorm(random);
   return {
     id,
     host: uid,
@@ -84,7 +103,9 @@ export function createMatch(
     updated: now,
     status: "lobby",
     players: [player(uid, name, now)],
-    final: { ...FINALS[0] },
+    final: { ...zones[5].center },
+    arena: structuredClone(CAMPUS_ARENA),
+    zones,
     pickups: [],
     pings: [],
     lastPing: 0,
@@ -136,7 +157,8 @@ export function tick(m: Match, now: number) {
     for (const p of m.players.filter((p) => p.role === "runner")) {
       const f = p.fix;
       const stale = !f || at - f.at > 45000;
-      const outside = stale || !inside(f!) || distance(f!, z.center) > z.radius;
+      const outside =
+        stale || !inPlayArea(m, f!) || distance(f!, z.center) > z.radius;
       if (outside) {
         p.hp = Math.max(0, p.hp - z.damage);
         if (!p.hp) {
@@ -251,11 +273,16 @@ export function apply(
     if (m.players.length < 3) throw Error("At least 3 players are needed");
     if (
       m.players.some(
-        (q) => !q.ready || !q.fix || now - q.fix.at > 30000 || !inside(q.fix),
+        (q) =>
+          !q.ready ||
+          !q.fix ||
+          now - q.fix.at > 30000 ||
+          !inPlayArea(m, q.fix) ||
+          distance(q.fix, zone(m, now).center) > zone(m, now).radius,
       )
     )
       throw Error(
-        "Everyone must be ready with fresh GPS inside the approved boundary",
+        "Everyone must be ready with fresh GPS inside the opening circle and approved boundary",
       );
     const shuffled = [...m.players];
     for (let j = shuffled.length - 1; j > 0; j--) {
@@ -269,17 +296,44 @@ export function apply(
       q.role = hunters.has(q.id) ? "hunter" : "runner";
       q.hp = 100;
     }
-    m.final = {
-      ...FINALS[
-        Math.min(FINALS.length - 1, Math.floor(random() * FINALS.length))
-      ],
-    };
-    m.pickups = [
-      { id: "med-west", kind: "med", x: -100, y: 12 },
-      { id: "med-east", kind: "med", x: 100, y: -12 },
-      { id: "life-west", kind: "life", x: -60, y: -15 },
-      { id: "life-east", kind: "life", x: 60, y: 15 },
-    ];
+    if (m.zones) {
+      const opening = m.zones[0];
+      const candidates = LANDMARKS.filter(
+        (p) => distance(p, opening.center) < opening.radius - 30,
+      );
+      const pool: Point[] = [...candidates, opening.center];
+      for (let i = 0; pool.length < 8 && i < 64; i++) {
+        const angle = i * 2.399963;
+        const p = {
+          x: opening.center.x + Math.cos(angle) * 80,
+          y: opening.center.y + Math.sin(angle) * 80,
+        };
+        if (inPlayArea(m, p) && pool.every((q) => distance(p, q) > 20))
+          pool.push(p);
+      }
+      const locations = pool.slice(0, 8);
+      m.pickups = locations.map((p, i) => ({
+        id: `supply-${i}`,
+        kind: i % 3 === 2 ? "life" : "med",
+        x: p.x,
+        y: p.y,
+      }));
+    } else {
+      m.final = {
+        ...MALL_FINALS[
+          Math.min(
+            MALL_FINALS.length - 1,
+            Math.floor(random() * MALL_FINALS.length),
+          )
+        ],
+      };
+      m.pickups = [
+        { id: "med-west", kind: "med", x: -100, y: 12 },
+        { id: "med-east", kind: "med", x: 100, y: -12 },
+        { id: "life-west", kind: "life", x: -60, y: -15 },
+        { id: "life-east", kind: "life", x: 60, y: 15 },
+      ];
+    }
     m.status = "active";
     m.start = now;
     m.tick = 0;
@@ -315,7 +369,7 @@ export function apply(
       prev.accuracy > 20 ||
       distance(f, item) > 12 ||
       distance(prev, item) > 12 ||
-      !inside(f) ||
+      !inPlayArea(m, f) ||
       distance(item, z.center) > z.radius
     )
       throw Error(
@@ -340,8 +394,9 @@ export function apply(
 export function view(m: Match, uid: string, now: number) {
   const p = m.players.find((p) => p.id === uid);
   if (!p) throw Error("You are not in this lobby");
-  const { final, players, pings, ...publicMatch } = m;
+  const { final, zones, players, pings, ...publicMatch } = m;
   void final;
+  void zones;
   return {
     ...publicMatch,
     players: players.map((q) => ({
@@ -352,7 +407,7 @@ export function view(m: Match, uid: string, now: number) {
       life: q.id === uid ? q.life : undefined,
       ready: q.ready,
       online: now - q.seen < 30000,
-      gpsReady: !!q.fix && now - q.fix.at < 30000 && inside(q.fix),
+      gpsReady: !!q.fix && now - q.fix.at < 30000 && inPlayArea(m, q.fix),
       ...(q.id === uid && m.status !== "finished" ? { fix: q.fix } : {}),
     })),
     pings:
@@ -372,3 +427,11 @@ export function view(m: Match, uid: string, now: number) {
   };
 }
 export type GameView = ReturnType<typeof view>;
+
+export function upgradeLobby(m: Match, random = Math.random) {
+  if (m.status === "lobby" && !m.zones) {
+    m.zones = generateStorm(random);
+    m.final = { ...m.zones[5].center };
+    m.arena = structuredClone(CAMPUS_ARENA);
+  }
+}

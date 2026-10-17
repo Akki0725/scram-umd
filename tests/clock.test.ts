@@ -6,6 +6,9 @@ import { apply, createMatch, tick, type Match } from "../lib/engine";
 const NOW = 1700000000000;
 function fixture(count: number, seconds: number) {
   const m = createMatch("CLOCKABC", "p0", "Player 0", NOW);
+  delete m.zones;
+  delete m.arena;
+  m.final = { x: -75, y: 0 };
   for (let i = 1; i < count; i++)
     apply(m, `p${i}`, { type: "join", name: `Player ${i}` }, NOW);
   m.players.forEach((p, i) => {
@@ -27,7 +30,34 @@ test("hosted SQL clock matches TypeScript authority across phases, grid signs, r
       "create role anon;create role authenticated;create role service_role;",
     );
     await pg.exec(sql.split("-- Scheduling is separate")[0]);
+    await pg.exec(
+      await readFile(
+        new URL("../supabase/migrations/003_campus_storm.sql", import.meta.url),
+        "utf8",
+      ),
+    );
     const cases: { m: Match; at: number }[] = [];
+    for (const seconds of [0, 119, 299, 599, 899, 1199, 1499, 2399]) {
+      const m = createMatch("NEWCAMPUS", "you", "Player", NOW, () => 0.47);
+      for (let i = 1; i < 8; i++) apply(m, `p${i}`, { type: "join" }, NOW);
+      m.players.forEach((p) => {
+        p.ready = true;
+        p.fix = { ...m.zones![0].center, at: NOW, accuracy: 8 };
+      });
+      apply(m, "you", { type: "start", approved: true }, NOW, () => 0.5);
+      m.tick = seconds;
+      m.players.forEach((p, i) => {
+        p.hp = i % 2 ? 2 : 100;
+        p.life = i % 3 === 0;
+        p.fix = {
+          ...m.zones![Math.min(5, Math.floor((seconds + 1) / 300))].center,
+          at: NOW + (seconds + 1) * 1000,
+          accuracy: 8,
+        };
+        if (i % 2 === 0) p.fix.x = 9000;
+      });
+      cases.push({ m, at: NOW + (seconds + 1) * 1000 });
+    }
     for (const seconds of [0, 119, 179, 299, 599, 899, 1199, 1499, 2399])
       for (const count of [3, 8, 20]) {
         const m = fixture(count, seconds);

@@ -2,7 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 import WebSocket from "ws";
 import type { WebSocketLikeConstructor } from "@supabase/realtime-js";
 import { randomInt } from "node:crypto";
-import { apply, createMatch, tick, type Match, type Action } from "./engine";
+import {
+  apply,
+  createMatch,
+  tick,
+  upgradeLobby,
+  type Match,
+  type Action,
+} from "./engine";
 export function db() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL,
     key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -64,6 +71,11 @@ export async function mutate(id: string, uid: string, a: Action) {
 export async function advance(id: string) {
   for (let n = 0; n < 8; n++) {
     const { state, version } = await read(id);
+    if (state.status === "lobby" && !state.zones) {
+      upgradeLobby(state, () => randomInt(0, 2 ** 24) / 2 ** 24);
+      if (await commit(state, version)) return state;
+      continue;
+    }
     if (state.status !== "active") return state;
     const before = state.tick;
     tick(state, Date.now());
@@ -80,7 +92,13 @@ export async function newLobby(uid: string, name: string) {
       { length: 8 },
       () => alphabet[randomInt(alphabet.length)],
     ).join("");
-    const m = createMatch(id, uid, name, Date.now());
+    const m = createMatch(
+      id,
+      uid,
+      name,
+      Date.now(),
+      () => randomInt(0, 2 ** 24) / 2 ** 24,
+    );
     if (await commit(m, -1)) return m;
   }
   throw Error("Could not create lobby. Try again");

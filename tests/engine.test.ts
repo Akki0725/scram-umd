@@ -1,10 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { apply, createMatch, tick, view, zone, HEADSTART } from "../lib/engine";
-import { FINALS, inside, distance, fromLngLat, toLngLat } from "../lib/geo";
+import {
+  MALL_FINALS as FINALS,
+  inside,
+  distance,
+  fromLngLat,
+  toLngLat,
+} from "../lib/geo";
 const NOW = 1700000000000;
 function setup(n = 8) {
   const m = createMatch("TESTABCD", "p0", "Player 0", NOW);
+  delete m.zones;
+  delete m.arena;
+  m.final = { x: -75, y: 0 };
   for (let i = 1; i < n; i++)
     apply(m, `p${i}`, { type: "join", name: `Player ${i}` }, NOW);
   m.players.forEach((p) => {
